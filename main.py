@@ -11,7 +11,7 @@ from datetime import datetime
 @register("AzusaImp", 
           "有栖日和", 
           "梓的用户信息和印象插件", 
-          "0.0.5a", 
+          "0.0.5b", 
           "https://github.com/Angus-YZH/astrbot_plugin_AzusaImp")
 
 class AzusaImp(Star):
@@ -233,17 +233,17 @@ class AzusaImp(Star):
         for item in contexts:
             if isinstance(item, str):
                 def replace_callback(match):
-                    user_id = match.group(1)  # 用户ID
+                    qq_number = match.group(1)  # 用户ID
                     old_nickname = match.group(2)  # 原昵称
                     
                     # 从用户信息中获取新昵称
-                    user_data = all_user_info.get(user_id)
+                    user_data = all_user_info.get(qq_number)
                     if user_data:
                         new_nickname = user_data.get('nickname', '')
                         
                         # 如果新昵称存在且与原昵称不同，进行替换
                         if new_nickname and new_nickname != old_nickname:
-                            return f'[User ID: {user_id}, Nickname: {new_nickname}]'
+                            return f'[User ID: {qq_number}, Nickname: {new_nickname}]'
                     
                     # 如果没有找到用户信息或新昵称为空，保持原样
                     return match.group(0)

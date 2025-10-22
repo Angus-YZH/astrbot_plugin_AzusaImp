@@ -224,39 +224,53 @@ class AzusaImp(Star):
     
         return "，".join(prompt_parts)
         
-    def replace_nickname_in_contexts(self, all_user_info: Dict[str, Any], pre_text: str) -> str:
-        """更安全的昵称替换方案：解析-替换-重建"""
-        if not all_user_info or not pre_text:
-            return pre_text
+    def replace_nickname_in_contexts(self, all_user_info: Dict[str, Any], contexts: Any) -> Any:
+        """更安全的昵称替换方案：处理上下文列表中的昵称替换"""
+        if not all_user_info or not contexts:
+            return contexts
         
-        # 查找所有用户占位符
-        placeholder_pattern = r'\[User ID: (\d+), Nickname: ([^\]]+)\]'
+        # 如果是列表，处理每个元素
+        if isinstance(contexts, list):
+            result = []
+            for item in contexts:
+                if isinstance(item, str):
+                    # 处理字符串元素
+                    placeholder_pattern = r'\[User ID: (\d+), Nickname: ([^\]]+)\]'
+                    
+                    def replace_callback(match):
+                        qq_number = match.group(1)
+                        old_nickname = match.group(2)
+                        
+                        # 精确查找用户信息
+                        user_info = all_user_info.get(qq_number)
+                        if user_info:
+                            new_nickname = user_info.get('nickname', '')
+                            
+                            # 如果新昵称与原昵称相同，跳过替换
+                            if new_nickname == old_nickname:
+                                return match.group(0)
+                            
+                            # 如果新昵称存在且与原昵称不同，进行替换
+                            if new_nickname:
+                                return f'[User ID: {qq_number}, Nickname: {new_nickname}]'
+                        
+                        # 如果没有找到用户信息或新昵称为空，保持原样
+                        return match.group(0)
+                    
+                    try:
+                        processed_item = re.sub(placeholder_pattern, replace_callback, item)
+                        result.append(processed_item)
+                    except Exception as e:
+                        logger.error(f"替换昵称时发生错误: {e}")
+                        result.append(item)
+                else:
+                    # 非字符串元素直接保留
+                    result.append(item)
+            return result
         
-        def replace_callback(match):
-            qq_number = match.group(1)
-            old_nickname = match.group(2)
-            
-            # 精确查找用户信息
-            user_info = all_user_info.get(qq_number)
-            if user_info:
-                new_nickname = user_info.get('nickname', '')
-                
-                # 如果新昵称与原昵称相同，跳过替换
-                if new_nickname == old_nickname:
-                    return match.group(0)
-                
-                # 如果新昵称存在且与原昵称不同，进行替换
-                if new_nickname:
-                    return f'[User ID: {qq_number}, Nickname: {new_nickname}]'
-            
-            # 如果没有找到用户信息或新昵称为空，保持原样
-            return match.group(0)
-        
-        try:
-            return re.sub(placeholder_pattern, replace_callback, pre_text)
-        except Exception as e:
-            logger.error(f"替换昵称时发生错误: {e}")
-            return pre_text
+        # 如果不是列表，直接返回原值
+        else:
+            return contexts
     
     @filter.on_llm_request()
     async def on_llm_request_hook(self, event: AstrMessageEvent, req: ProviderRequest):

@@ -4,13 +4,14 @@ from astrbot.api import logger
 from astrbot.api.provider import ProviderRequest
 import json
 import os
+import re
 from typing import Dict, Any
 from datetime import datetime
 
 @register("AzusaImp", 
           "有栖日和", 
           "梓的用户信息和印象插件", 
-          "0.0.2", 
+          "0.0.3", 
           "https://github.com/Angus-YZH/astrbot_plugin_AzusaImp")
 
 class AzusaImp(Star):
@@ -19,6 +20,7 @@ class AzusaImp(Star):
         self.user_info_file = "data/plugin_data/AzusaImp/user_info.json"
         self.group_info_file = "data/plugin_data/AzusaImp/group_info.json"  # 新增群信息文件
         self.ensure_data_directory()
+        self.placeholder_pattern = re.compile(r'\[User ID: (\d+), Nickname: ([^\]]+)\]')
 
     def ensure_data_directory(self):
         """确保data目录存在"""
@@ -221,6 +223,40 @@ class AzusaImp(Star):
                 prompt_parts.append(f"群头衔: {group_title}")
     
         return "，".join(prompt_parts)
+        
+    def replace_nickname_in_context(self, all_user_info: Dict[str, Any], pre_text: str) -> str:
+        """更安全的昵称替换方案：解析-替换-重建"""
+        if not all_user_info or not pre_text:
+            return pre_text
+        
+        # 查找所有用户占位符
+        placeholder_pattern = r'\[User ID: (\d+), Nickname: ([^\]]+)\]'
+        
+        def replace_callback(match):
+            qq_number = match.group(1)
+            old_nickname = match.group(2)
+            
+            # 精确查找用户信息
+            user_info = all_user_info.get(qq_number)
+            if user_info:
+                new_nickname = user_info.get('nickname', '')
+                
+                # 如果新昵称与原昵称相同，跳过替换
+                if new_nickname == old_nickname:
+                    return match.group(0)
+                
+                # 如果新昵称存在且与原昵称不同，进行替换
+                if new_nickname:
+                    return f'[User ID: {qq_number}, Nickname: {new_nickname}]'
+            
+            # 如果没有找到用户信息或新昵称为空，保持原样
+            return match.group(0)
+        
+        try:
+            return re.sub(placeholder_pattern, replace_callback, pre_text)
+        except Exception as e:
+            logger.error(f"替换昵称时发生错误: {e}")
+            return pre_text
     
     @filter.on_llm_request()
     async def on_llm_request_hook(self, event: AstrMessageEvent, req: ProviderRequest):
@@ -244,20 +280,13 @@ class AzusaImp(Star):
                 all_user_info[qq_number] = user_info
                 self.save_user_info(all_user_info)
                 logger.info(f"已记录新用户基本信息: QQ{qq_number}")
-            else:
-                # 用户信息已存在，只更新群信息
-                if is_group:
-                    user_info = await self.get_qq_user_info(event, qq_number, update_user_info=False)
-                    # 只更新群相关信息到用户信息
-                    if 'group_role' in user_info:
-                        all_user_info[qq_number]['group_role'] = user_info['group_role']
-                    if 'group_title' in user_info:
-                        all_user_info[qq_number]['group_title'] = user_info['group_title']
-                    self.save_user_info(all_user_info)
             
             # 如果是群聊，保存群成员信息到群信息文件（每次都更新）
             if is_group:
-                group_key = f"{group_id}_{qq_number}"
+                # 确保群ID键存在
+                if group_id not in all_group_info:
+                    all_group_info[group_id] = {}
+                    
                 user_info = all_user_info[qq_number]
                 group_info = {
                     "qq_number": qq_number,
@@ -267,12 +296,13 @@ class AzusaImp(Star):
                     "nickname": user_info.get('nickname', '未知'),
                     "timestamp": datetime.now().isoformat()
                 }
-                all_group_info[group_key] = group_info
+                all_group_info[group_id][qq_number] = group_info
                 self.save_group_info(all_group_info)
                 logger.info(f"已更新用户 {qq_number} 在群 {group_id} 的群成员信息")
             
             # 将用户信息添加到系统提示词
             user_prompt = self.format_user_info_for_prompt(all_user_info[qq_number], is_group)
+            req.context = self.replace_nickname_in_context(all_user_info, req.context)
             
             if user_prompt:
                 # 在现有系统提示词前添加用户信息，并明确要求使用昵称称呼用户

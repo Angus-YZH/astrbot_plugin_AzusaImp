@@ -11,7 +11,7 @@ from datetime import datetime
 @register("AzusaImp", 
           "有栖日和", 
           "梓的用户信息和印象插件", 
-          "0.0.5b", 
+          "0.0.5c", 
           "https://github.com/Angus-YZH/astrbot_plugin_AzusaImp")
 
 class AzusaImp(Star):
@@ -225,39 +225,34 @@ class AzusaImp(Star):
         return "，".join(prompt_parts)
         
     def replace_nickname_in_contexts(self, all_user_info: Dict[str, Any], contexts: List[str]) -> List[str]:
-        """安全且精确的昵称替换方案：处理上下文列表中的昵称替换"""
+        """更新上下文中的用户昵称信息"""
         if not all_user_info or not contexts:
             return contexts
         
         result = []
         for item in contexts:
-            if isinstance(item, str):
-                def replace_callback(match):
-                    qq_number = match.group(1)  # 用户ID
-                    old_nickname = match.group(2)  # 原昵称
-                    
-                    # 从用户信息中获取新昵称
-                    user_data = all_user_info.get(qq_number)
-                    if user_data:
-                        new_nickname = user_data.get('nickname', '')
-                        
-                        # 如果新昵称存在且与原昵称不同，进行替换
-                        if new_nickname and new_nickname != old_nickname:
-                            return f'[User ID: {qq_number}, Nickname: {new_nickname}]'
-                    
-                    # 如果没有找到用户信息或新昵称为空，保持原样
-                    return match.group(0)
-                
-                try:
-                    # 使用正则替换所有匹配的占位符
-                    processed_item = self.placeholder_pattern.sub(replace_callback, item)
-                    result.append(processed_item)
-                except Exception as e:
-                    logger.error(f"替换昵称时发生错误: {e}")
-                    result.append(item)
-            else:
-                # 非字符串元素直接保留
+            if not isinstance(item, str):
                 result.append(item)
+                continue
+                
+            updated_item = item
+            # 使用正则表达式查找所有 [User ID: X, Nickname: Y] 模式
+            matches = self.placeholder_pattern.findall(item)
+            
+            for qq_number, old_nickname in matches:
+                if qq_number in all_user_info:
+                    user_info = all_user_info[qq_number]
+                    if isinstance(user_info, dict):
+                        current_nickname = user_info.get('nickname')
+                        if current_nickname and current_nickname != old_nickname:
+                            # 构建旧模式和新模式
+                            old_pattern = f"[User ID: {qq_number}, Nickname: {old_nickname}]"
+                            new_pattern = f"[User ID: {qq_number}, Nickname: {current_nickname}]"
+                            # 替换昵称
+                            updated_item = updated_item.replace(old_pattern, new_pattern)
+                            logger.debug(f"在上下文中更新昵称: {old_nickname} -> {current_nickname}")
+            
+            result.append(updated_item)
         
         return result
     

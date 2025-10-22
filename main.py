@@ -224,7 +224,7 @@ class AzusaImp(Star):
     
         return "，".join(prompt_parts)
         
-    def replace_nickname_in_context(self, all_user_info: Dict[str, Any], pre_text: str) -> str:
+    def replace_nickname_in_contexts(self, all_user_info: Dict[str, Any], pre_text: str) -> str:
         """更安全的昵称替换方案：解析-替换-重建"""
         if not all_user_info or not pre_text:
             return pre_text
@@ -302,7 +302,7 @@ class AzusaImp(Star):
             
             # 将用户信息添加到系统提示词
             user_prompt = self.format_user_info_for_prompt(all_user_info[qq_number], is_group)
-            req.context = self.replace_nickname_in_context(all_user_info, req.context)
+            req.contexts = self.replace_nickname_in_context(all_user_info, req.contexts)
             
             if user_prompt:
                 # 在现有系统提示词前添加用户信息，并明确要求使用昵称称呼用户

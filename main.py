@@ -5,7 +5,7 @@ from astrbot.api.provider import ProviderRequest
 import json
 import os
 import re
-from typing import Dict, Any
+from typing import Dict, Any, List
 from datetime import datetime
 
 @register("AzusaImp", 

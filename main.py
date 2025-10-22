@@ -302,13 +302,13 @@ class AzusaImp(Star):
             
             # 将用户信息添加到系统提示词
             user_prompt = self.format_user_info_for_prompt(all_user_info[qq_number], is_group)
-            req.contexts = self.replace_nickname_in_context(all_user_info, req.contexts)
+            req.contexts = self.replace_nickname_in_contexts(all_user_info, req.contexts)
             
             if user_prompt:
                 # 在现有系统提示词前添加用户信息，并明确要求使用昵称称呼用户
                 original_system_prompt = req.system_prompt or ""
                 nickname = all_user_info[qq_number].get('nickname', '用户')
-                req.system_prompt = f"当前对话用户信息: {user_prompt}。请称呼用户为{nickname}。{original_system_prompt}"
+                req.system_prompt = f"当前对话用户信息: {user_prompt}。{original_system_prompt}"
                     
                 logger.debug(f"已将用户信息添加到提示词: {user_prompt}")
     

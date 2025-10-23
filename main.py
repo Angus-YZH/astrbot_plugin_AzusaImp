@@ -11,7 +11,7 @@ from datetime import datetime
 @register("AzusaImp", 
           "有栖日和", 
           "梓的用户信息和印象插件", 
-          "0.0.6a", 
+          "0.0.6b", 
           "https://github.com/Angus-YZH/astrbot_plugin_AzusaImp")
 
 class AzusaImp(Star):
@@ -341,6 +341,7 @@ class AzusaImp(Star):
             relationship = all_user_info[qq_number]['relationship']
             impression = all_user_info[qq_number]['impression']
             attitude = all_user_info[qq_number]['attitude']
+            interest = ""
             if all_user_info[qq_number]['interest']:
                 interest = "用户的爱好有"+" ".join(all_user_info[qq_number]['interest'])+"。"
             

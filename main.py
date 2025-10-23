@@ -11,7 +11,7 @@ from datetime import datetime
 @register("AzusaImp", 
           "有栖日和", 
           "梓的用户信息和印象插件", 
-          "0.0.7a", 
+          "0.0.7b", 
           "https://github.com/Angus-YZH/astrbot_plugin_AzusaImp")
 
 class AzusaImp(Star):
@@ -189,32 +189,55 @@ class AzusaImp(Star):
         Returns:
             tuple: (清理后的文本, 状态字典)
         """
-        # 匹配格式: [Address: xxx, Relationship: xxx, Impression: xxx, Attitude: xxx, Interest: xxx]
-        status_pattern = r'\[Address:\s*([^,\]]+),\s*Relationship:\s*([^,\]]+),\s*Impression:\s*([^,\]]+),\s*Attitude:\s*([^,\]]+),\s*Interest:\s*([^,\]]*)\]'
+        # 主模式：匹配包含任意状态字段的块
+        block_pattern = re.compile(
+            r"\[\s*(?:Address:|Relationship:|Impression:|Attitude:|Interest:).*?\]",
+            re.DOTALL | re.IGNORECASE
+        )
         
-        match = re.search(status_pattern, text, re.IGNORECASE | re.DOTALL)
-        if not match:
+        # 各个字段的匹配模式
+        address_pattern = re.compile(r"Address:\s*(.+?)(?=\s*,\s*(?:Relationship|Impression|Attitude|Interest):|\])", re.IGNORECASE)
+        relationship_pattern = re.compile(r"Relationship:\s*(.+?)(?=\s*,\s*(?:Impression|Attitude|Interest):|\])", re.IGNORECASE)
+        impression_pattern = re.compile(r"Impression:\s*(.+?)(?=\s*,\s*(?:Attitude|Interest):|\])", re.IGNORECASE)
+        attitude_pattern = re.compile(r"Attitude:\s*(.+?)(?=\s*,\s*Interest:|\])", re.IGNORECASE)
+        interest_pattern = re.compile(r"Interest:\s*(.+?)(?=\s*\])", re.IGNORECASE)
+        
+        # 1. 查找状态块
+        block_match = block_pattern.search(text)
+        if not block_match:
             return text, {}
         
-        try:
-            status_dict = {
-                "address": match.group(1).strip(),
-                "relationship": match.group(2).strip(),
-                "impression": match.group(3).strip(),
-                "attitude": match.group(4).strip(),
-                "interest": match.group(5).strip() if match.group(5) else ""
-            }
-            
-            # 移除状态块
-            cleaned_text = text[:match.start()] + text[match.end():]
-            cleaned_text = cleaned_text.strip()
-            
-            return cleaned_text, status_dict
-            
-        except Exception as e:
-            logger.error(f"解析状态块时出错: {e}")
-            return text, {}
-    
+        # 2. 清理：从回复中移除整个状态块
+        block_text = block_match.group(0)
+        cleaned_text = text.replace(block_text, '').strip()
+        
+        # 3. 解析：对捕获的状态块进行详细解析
+        address_match = address_pattern.search(block_text)
+        relationship_match = relationship_pattern.search(block_text)
+        impression_match = impression_pattern.search(block_text)
+        attitude_match = attitude_pattern.search(block_text)
+        interest_match = interest_pattern.search(block_text)
+        
+        # 如果块里连一个有效参数都找不到，直接返回
+        if not (address_match or relationship_match or impression_match or attitude_match or interest_match):
+            return cleaned_text, {}
+        
+        # 4. 构建状态字典
+        status_dict = {}
+        
+        if address_match:
+            status_dict['address'] = address_match.group(1).strip(' ,')
+        if relationship_match:
+            status_dict['relationship'] = relationship_match.group(1).strip(' ,')
+        if impression_match:
+            status_dict['impression'] = impression_match.group(1).strip(' ,')
+        if attitude_match:
+            status_dict['attitude'] = attitude_match.group(1).strip(' ,')
+        if interest_match:
+            status_dict['interest'] = interest_match.group(1).strip(' ,')
+        
+        return cleaned_text, status_dict
+        
     def get_group_role_text(self, role: str) -> str:
         """将群身份代码转换为中文文本"""
         role_map = {'owner': '群主', 'admin': '管理员', 'member': '成员'}
@@ -424,7 +447,7 @@ class AzusaImp(Star):
                 return
     
             qq_number = event.get_sender_id()
-            response_text = resp.response
+            response_text = resp.completion_text
             
             # 解析状态块
             cleaned_text, status_dict = self.parse_status_block(response_text)
@@ -443,7 +466,7 @@ class AzusaImp(Star):
                     logger.info(f"已更新用户 {qq_number} 的印象信息: {status_dict}")
                 
                 # 更新回复内容，移除状态块
-                resp.response = cleaned_text
+                resp.completion_text = cleaned_text
                 
         except Exception as e:
             logger.error(f"在处理LLM回复钩子时出错: {e}")

@@ -11,7 +11,7 @@ from datetime import datetime
 @register("AzusaImp", 
           "有栖日和", 
           "梓的用户信息和印象插件", 
-          "0.0.5c", 
+          "0.0.6a", 
           "https://github.com/Angus-YZH/astrbot_plugin_AzusaImp")
 
 class AzusaImp(Star):
@@ -63,11 +63,28 @@ class AzusaImp(Star):
         except Exception as e:
             logger.error(f"保存群信息文件失败: {e}")
 
+    def set_default_user_impression(self, user_info: Dict[str, Any], is_group: bool = False) -> Dict[str, Any]:
+        """设置默认用户印象"""
+        nickname = user_info["nickname"]
+        if is_group:
+            default_relation = "QQ群友"
+        else:
+            default_relation = "QQ好友"
+        default_impression = {
+            "address": f"{nickname}同学", 
+            "relationship": default_relation, 
+            "impression": "无特别印象", 
+            "attitude": "不冷不热，保持适当距离", 
+            "interest": []
+        }
+        
+        return default_impression
+
     async def get_qq_user_info(self, event: AstrMessageEvent, qq_number: str, update_user_info: bool = True) -> Dict[str, Any]:
-        """获取QQ用户详细信息
+        """获取QQ用户基本信息
         
         Args:
-            update_user_info: 是否更新用户信息，False时只获取群信息
+            update_user_info: 是否更新用户信息
         """
         user_info = {
             "qq_number": qq_number,
@@ -105,8 +122,35 @@ class AzusaImp(Star):
                         "gender": self.get_gender_text(stranger_info.get('sex', 'unknown')),
                         "birthday": birthday
                     })
+                
+                logger.info(f"成功获取用户 {qq_number} 的基本信息")
+                
+        except Exception as e:
+            logger.error(f"获取用户 {qq_number} 信息时出错: {e}")
     
-                # 如果是群聊消息，获取群成员信息（每次都获取）
+        # 设置默认印象
+        user_info.update(self.set_default_user_impression(user_info, is_group=bool(event.get_group_id())))
+        
+        return user_info
+    
+    async def get_group_member_info(self, event: AstrMessageEvent, qq_number: str) -> Dict[str, Any]:
+        """获取群成员信息"""
+        group_info = {
+            "qq_number": qq_number,
+            "group_id": event.get_group_id(),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        try:
+            # 检查是否为QQ平台
+            if event.get_platform_name() != "aiocqhttp":
+                return group_info
+    
+            # 调用QQ协议端API获取群成员信息
+            from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
+            if isinstance(event, AiocqhttpMessageEvent):
+                client = event.bot
+                
                 group_id = event.get_group_id()
                 if group_id:
                     group_member_payloads = {
@@ -122,7 +166,7 @@ class AzusaImp(Star):
                         role = group_member_info.get('role', 'member')
                         title = group_member_info.get('title', '') or '无'
                         
-                        user_info.update({
+                        group_info.update({
                             "group_role": role,
                             "group_title": title
                         })
@@ -130,14 +174,12 @@ class AzusaImp(Star):
                         logger.info(f"成功获取用户 {qq_number} 在群 {group_id} 的成员信息")
                     except Exception as e:
                         logger.error(f"获取群成员信息失败: {e}")
-                
-                logger.info(f"成功获取用户 {qq_number} 的信息")
-                
+        
         except Exception as e:
-            logger.error(f"获取用户 {qq_number} 信息时出错: {e}")
+            logger.error(f"获取群成员信息时出错: {e}")
+        
+        return group_info
     
-        return user_info
-
     def get_group_role_text(self, role: str) -> str:
         """将群身份代码转换为中文文本"""
         role_map = {'owner': '群主', 'admin': '管理员', 'member': '成员'}
@@ -190,9 +232,10 @@ class AzusaImp(Star):
         }
         return gender_map.get(gender, '未知')
 
-    def format_user_info_for_prompt(self, user_info: Dict[str, Any], is_group: bool = False) -> str:
+    def format_user_info_for_prompt(self, user_info: Dict[str, Any], group_info: Dict[str, Any]) -> str:
         """将用户信息格式化为提示词文本"""
         prompt_parts = []
+        is_group = bool(group_info)
         
         # 基础信息
         prompt_parts.append(f"用户QQ号: {user_info.get('qq_number', '未知')}")
@@ -212,18 +255,18 @@ class AzusaImp(Star):
             if age > 0:
                 prompt_parts.append(f"年龄: {age}岁")
         
-        # 群聊额外信息
+        # 群聊额外信息 - 从 group_info 中获取
         if is_group:
-            group_role = user_info.get('group_role')
+            group_role = group_info.get('group_role')
             if group_role:
                 prompt_parts.append(f"群身份: {self.get_group_role_text(group_role)}")
             
-            group_title = user_info.get('group_title', '')
+            group_title = group_info.get('group_title', '')
             if group_title and group_title != '无':
                 prompt_parts.append(f"群头衔: {group_title}")
     
         return "，".join(prompt_parts)
-        
+    '''有bug，之后修
     def replace_nickname_in_contexts(self, all_user_info: Dict[str, Any], contexts: List[str]) -> List[str]:
         """更新上下文中的用户昵称信息"""
         if not all_user_info or not contexts:
@@ -255,7 +298,7 @@ class AzusaImp(Star):
             result.append(updated_item)
         
         return result
-    
+    '''
     @filter.on_llm_request()
     async def on_llm_request_hook(self, event: AstrMessageEvent, req: ProviderRequest):
         """LLM请求时的钩子，用于记录用户信息并添加到提示词"""
@@ -272,41 +315,40 @@ class AzusaImp(Star):
             all_user_info = self.load_user_info()
             all_group_info = self.load_group_info()
             
-            # 如果用户信息不存在，则获取并保存
+            # 如果用户基本信息不存在，则获取并保存
             if qq_number not in all_user_info:
                 user_info = await self.get_qq_user_info(event, qq_number, update_user_info=True)
                 all_user_info[qq_number] = user_info
                 self.save_user_info(all_user_info)
                 logger.info(f"已记录新用户基本信息: QQ{qq_number}")
             
-            # 如果是群聊，保存群成员信息到群信息文件（每次都更新）
+            # 如果是群聊，获取并保存群成员信息
             if is_group:
                 # 确保群ID键存在
                 if group_id not in all_group_info:
                     all_group_info[group_id] = {}
-                    
-                user_info = all_user_info[qq_number]
-                group_info = {
-                    "qq_number": qq_number,
-                    "group_id": group_id,
-                    "group_role": user_info.get('group_role', 'member'),
-                    "group_title": user_info.get('group_title', '无'),
-                    "nickname": user_info.get('nickname', '未知'),
-                    "timestamp": datetime.now().isoformat()
-                }
-                all_group_info[group_id][qq_number] = group_info
+                
+                # 获取群成员信息
+                group_member_info = await self.get_group_member_info(event, qq_number)
+                all_group_info[group_id][qq_number] = group_member_info
                 self.save_group_info(all_group_info)
                 logger.info(f"已更新用户 {qq_number} 在群 {group_id} 的群成员信息")
             
             # 将用户信息添加到系统提示词
-            user_prompt = self.format_user_info_for_prompt(all_user_info[qq_number], is_group)
-            req.contexts = self.replace_nickname_in_contexts(all_user_info, req.contexts)
+            current_group_info = all_group_info.get(group_id, {}).get(qq_number, {}) if is_group else {}
+            user_prompt = self.format_user_info_for_prompt(all_user_info[qq_number], current_group_info)
+            
+            relationship = all_user_info[qq_number]['relationship']
+            impression = all_user_info[qq_number]['impression']
+            attitude = all_user_info[qq_number]['attitude']
+            if all_user_info[qq_number]['interest']:
+                interest = "用户的爱好有"+" ".join(all_user_info[qq_number]['interest'])+"。"
             
             if user_prompt:
                 # 在现有系统提示词前添加用户信息，并明确要求使用昵称称呼用户
                 original_system_prompt = req.system_prompt or ""
-                nickname = all_user_info[qq_number].get('nickname', '用户')
-                req.system_prompt = f"当前对话用户信息: {user_prompt}。{original_system_prompt}"
+                nickname = all_user_info[qq_number].get('address', '用户')
+                req.system_prompt = f"当前对话用户基本信息: {user_prompt}。请称呼用户为{nickname}。用户是你的{relationship}，你对用户的印象是{impression}，你对用户的态度是{attitude}，{interest}\n{original_system_prompt}"
                     
                 logger.debug(f"已将用户信息添加到提示词: {user_prompt}")
     
@@ -425,7 +467,7 @@ class AzusaImp(Star):
             logger.error(f"更新性别时出错: {e}")
             yield event.plain_result(f"更新性别失败: {str(e)}")
 
-    @filter.command("my_info", alias={'我的信息', '查看信息'})
+    @filter.command("我的信息", alias={'my_info', '查看信息'})
     async def show_my_info(self, event: AstrMessageEvent):
         """查看当前用户信息"""
         try:

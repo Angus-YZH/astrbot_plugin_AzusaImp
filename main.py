@@ -1,6 +1,6 @@
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star, register
-from astrbot.api import logger
+from astrbot.api import logger, AstrBotConfig
 from astrbot.api.provider import ProviderRequest, LLMResponse
 import json
 import os
@@ -11,21 +11,22 @@ from datetime import datetime
 @register("AzusaImp", 
           "有栖日和", 
           "梓的用户信息和印象插件", 
-          "0.0.7b", 
+          "0.0.7c", 
           "https://github.com/Angus-YZH/astrbot_plugin_AzusaImp")
 
 class AzusaImp(Star):
-    def __init__(self, context: Context):
+    def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
         self.user_info_file = "data/plugin_data/AzusaImp/user_info.json"
-        self.group_info_file = "data/plugin_data/AzusaImp/group_info.json"  # 新增群信息文件
+        self.group_info_file = "data/plugin_data/AzusaImp/group_info.json"
         self.ensure_data_directory()
+        self.config = config
         self.placeholder_pattern = re.compile(r'\[User ID: (\d+), Nickname: ([^\]]+)\]')
 
     def ensure_data_directory(self):
         """确保data目录存在"""
         os.makedirs(os.path.dirname(self.user_info_file), exist_ok=True)
-        os.makedirs(os.path.dirname(self.group_info_file), exist_ok=True)  # 确保群信息目录也存在
+        os.makedirs(os.path.dirname(self.group_info_file), exist_ok=True)
 
     def load_user_info(self) -> Dict[str, Any]:
         """加载用户信息文件"""
@@ -324,39 +325,7 @@ class AzusaImp(Star):
                 prompt_parts.append(f"群头衔: {group_title}")
     
         return "，".join(prompt_parts)
-    '''有bug，之后修
-    def replace_nickname_in_contexts(self, all_user_info: Dict[str, Any], contexts: List[str]) -> List[str]:
-        """更新上下文中的用户昵称信息"""
-        if not all_user_info or not contexts:
-            return contexts
-        
-        result = []
-        for item in contexts:
-            if not isinstance(item, str):
-                result.append(item)
-                continue
-                
-            updated_item = item
-            # 使用正则表达式查找所有 [User ID: X, Nickname: Y] 模式
-            matches = self.placeholder_pattern.findall(item)
-            
-            for qq_number, old_nickname in matches:
-                if qq_number in all_user_info:
-                    user_info = all_user_info[qq_number]
-                    if isinstance(user_info, dict):
-                        current_nickname = user_info.get('nickname')
-                        if current_nickname and current_nickname != old_nickname:
-                            # 构建旧模式和新模式
-                            old_pattern = f"[User ID: {qq_number}, Nickname: {old_nickname}]"
-                            new_pattern = f"[User ID: {qq_number}, Nickname: {current_nickname}]"
-                            # 替换昵称
-                            updated_item = updated_item.replace(old_pattern, new_pattern)
-                            logger.debug(f"在上下文中更新昵称: {old_nickname} -> {current_nickname}")
-            
-            result.append(updated_item)
-        
-        return result
-    '''
+    
     @filter.on_llm_request()
     async def on_llm_request_hook(self, event: AstrMessageEvent, req: ProviderRequest):
         """LLM请求时的钩子，用于记录用户信息并添加到提示词"""
@@ -425,13 +394,13 @@ class AzusaImp(Star):
             attitude = all_user_info[qq_number]['attitude']
             interest = ""
             if all_user_info[qq_number]['interest']:
-                interest = "用户的爱好有" + all_user_info[qq_number]['interest']
+                interest = "，用户的爱好有" + all_user_info[qq_number]['interest']
             
             if user_prompt:
                 # 在现有系统提示词前添加用户信息，并明确要求使用昵称称呼用户
                 original_system_prompt = req.system_prompt or ""
                 nickname = all_user_info[qq_number].get('address', '用户')
-                req.system_prompt = f"当前对话用户基本信息: {user_prompt}。请称呼用户为{nickname}。用户是你的{relationship}，你对用户的印象是{impression}，你对用户的态度是{attitude}，{interest}。你需要严格遵守以下指令：\n{plugin_prompt}\n{original_system_prompt}"
+                req.system_prompt = f"当前对话用户基本信息: {user_prompt}。请称呼用户为{nickname}。用户是你的{relationship}，你对用户的印象是{impression}，你对用户的态度是{attitude}{interest}。你需要严格遵守以下指令：\n{plugin_prompt}\n{original_system_prompt}"
                     
                 logger.debug(f"已将用户信息添加到提示词: {user_prompt}")
     
@@ -470,18 +439,20 @@ class AzusaImp(Star):
                 
         except Exception as e:
             logger.error(f"在处理LLM回复钩子时出错: {e}")
-    
-    @filter.command_group("修改信息", alias={'update_info', 'set_info'})
-    async def update_info_group(self):
-        """修改用户信息命令组"""
+
+
+    @filter.command_group("azusaimp")
+    async def azusaimp_command_group(self):
+        """总命令组"""
         pass
-    '''暂时禁用更新昵称指令，之后再修
-    @update_info_group.command("昵称", alias={'nickname', 'name'})
-    async def update_nickname(self, event: AstrMessageEvent, new_nickname: str):
-        """修改昵称
+    
+    @azusaimp_command_group.command("set_nickname")
+    async def update_nickname(self, event: AstrMessageEvent, new_nickname: str, new_address: str = ""):
+        """修改昵称和称呼
         
         Args:
             new_nickname(string): 新的昵称
+            new_address(string): 新的称呼，留空则不修改
         """
         try:
             qq_number = event.get_sender_id()
@@ -494,17 +465,19 @@ class AzusaImp(Star):
             # 更新昵称
             old_nickname = all_user_info[qq_number].get('nickname', '')
             all_user_info[qq_number]['nickname'] = new_nickname
+            if new_address:
+                all_user_info[qq_number]['address'] = new_address
             
             self.save_user_info(all_user_info)
             
             logger.info(f"用户 {qq_number} 更新昵称: {old_nickname} -> {new_nickname}")
-            yield event.plain_result(f"已更新您的昵称: {new_nickname}")
+            yield event.plain_result(f"已更新您的昵称: {new_nickname}，称呼：{all_user_info[qq_number]['address']}")
             
         except Exception as e:
             logger.error(f"更新昵称时出错: {e}")
             yield event.plain_result(f"更新昵称失败: {str(e)}")
-    '''
-    @update_info_group.command("生日", alias={'birthday', 'birth'})
+    
+    @azusaimp_command_group.command("set_birth")
     async def update_birthday(self, event: AstrMessageEvent, new_birthday: str):
         """修改生日
         
@@ -549,7 +522,7 @@ class AzusaImp(Star):
             logger.error(f"更新生日时出错: {e}")
             yield event.plain_result(f"更新生日失败: {str(e)}")
     
-    @update_info_group.command("性别", alias={'gender', 'sex'})
+    @azusaimp_command_group.command("set_sex")
     async def update_gender(self, event: AstrMessageEvent, new_gender: str):
         """修改性别
         
@@ -583,19 +556,26 @@ class AzusaImp(Star):
             logger.error(f"更新性别时出错: {e}")
             yield event.plain_result(f"更新性别失败: {str(e)}")
 
-    @filter.command("我的信息", alias={'my_info', '查看信息'})
-    async def show_my_info(self, event: AstrMessageEvent):
-        """查看当前用户信息"""
+    @azusaimp_command_group.command("user_info")
+    @filter.permission_type(filter.PermissionType.ADMIN)
+    async def show_user_info(self, event: AstrMessageEvent, qq_number: str = ""):
+        """查看用户信息（管理员）
+        
+        Args:
+            qq_number(str): 查询对象QQ号，留空则默认为自己
+        """
+        
         try:
-            qq_number = event.get_sender_id()
+            if not qq_number:
+                qq_number = event.get_sender_id()
             all_user_info = self.load_user_info()
             
             if qq_number not in all_user_info:
-                yield event.plain_result("您的用户信息不存在，请先发送一条消息触发信息记录")
+                yield event.plain_result("用户信息不存在，请先发送一条消息触发信息记录")
                 return
             
             user_info = all_user_info[qq_number]
-            info_text = f"您的信息:\nQQ: {user_info.get('qq_number', '未知')}\n昵称: {user_info.get('nickname', '未知')}\n性别: {user_info.get('gender', '未知')}\n生日: {user_info.get('birthday', '未知')}"
+            info_text = f"用户信息:\nQQ: {user_info.get('qq_number', '未知')}\n昵称: {user_info.get('nickname', '未知')}\n性别: {user_info.get('gender', '未知')}\n生日: {user_info.get('birthday', '未知')}\n关系: {user_info.get('relationship', '未知')}\n印象: {user_info.get('impression', '未知')}\n态度: {user_info.get('attitude', '未知')}"
             
             # 计算并显示年龄
             birthday = user_info.get('birthday', '未知')
@@ -608,6 +588,31 @@ class AzusaImp(Star):
             
         except Exception as e:
             logger.error(f"查看用户信息时出错: {e}")
+            yield event.plain_result(f"获取信息失败: {str(e)}")
+
+    @azusaimp_command_group.command("reset_info")
+    @filter.permission_type(filter.PermissionType.ADMIN)
+    async def reset_user_info(self, event: AstrMessageEvent, qq_number: str = ""):
+        """重置用户信息（管理员）
+        
+        Args:
+            qq_number(str): 重置对象QQ号，留空则默认为自己
+        """
+        
+        try:
+            if not qq_number:
+                qq_number = event.get_sender_id()
+            
+            all_user_info = self.load_user_info()
+            
+            user_info = await self.get_qq_user_info(event, qq_number, update_user_info=True)
+            all_user_info[qq_number] = user_info
+            self.save_user_info(all_user_info)
+            
+            yield event.plain_result("重置成功")
+            
+        except Exception as e:
+            logger.error(f"重置用户信息时出错: {e}")
             yield event.plain_result(f"获取信息失败: {str(e)}")
 
     async def terminate(self):

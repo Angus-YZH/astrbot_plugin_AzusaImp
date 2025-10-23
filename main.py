@@ -1,7 +1,7 @@
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger
-from astrbot.api.provider import ProviderRequest
+from astrbot.api.provider import ProviderRequest, LLMResponse
 import json
 import os
 import re
@@ -11,7 +11,7 @@ from datetime import datetime
 @register("AzusaImp", 
           "有栖日和", 
           "梓的用户信息和印象插件", 
-          "0.0.6d", 
+          "0.0.7a", 
           "https://github.com/Angus-YZH/astrbot_plugin_AzusaImp")
 
 class AzusaImp(Star):
@@ -75,7 +75,7 @@ class AzusaImp(Star):
             "relationship": default_relation, 
             "impression": "无特别印象", 
             "attitude": "不冷不热，保持适当距离", 
-            "interest": []
+            "interest": ""
         }
         
         return default_impression
@@ -179,6 +179,41 @@ class AzusaImp(Star):
             logger.error(f"获取群成员信息时出错: {e}")
         
         return group_info
+    
+    def parse_status_block(self, text: str) -> tuple[str, Dict[str, str]]:
+        """解析状态块并返回清理后的文本和状态字典
+        
+        Args:
+            text: 包含状态块的文本
+            
+        Returns:
+            tuple: (清理后的文本, 状态字典)
+        """
+        # 匹配格式: [Address: xxx, Relationship: xxx, Impression: xxx, Attitude: xxx, Interest: xxx]
+        status_pattern = r'\[Address:\s*([^,\]]+),\s*Relationship:\s*([^,\]]+),\s*Impression:\s*([^,\]]+),\s*Attitude:\s*([^,\]]+),\s*Interest:\s*([^,\]]*)\]'
+        
+        match = re.search(status_pattern, text, re.IGNORECASE | re.DOTALL)
+        if not match:
+            return text, {}
+        
+        try:
+            status_dict = {
+                "address": match.group(1).strip(),
+                "relationship": match.group(2).strip(),
+                "impression": match.group(3).strip(),
+                "attitude": match.group(4).strip(),
+                "interest": match.group(5).strip() if match.group(5) else ""
+            }
+            
+            # 移除状态块
+            cleaned_text = text[:match.start()] + text[match.end():]
+            cleaned_text = cleaned_text.strip()
+            
+            return cleaned_text, status_dict
+            
+        except Exception as e:
+            logger.error(f"解析状态块时出错: {e}")
+            return text, {}
     
     def get_group_role_text(self, role: str) -> str:
         """将群身份代码转换为中文文本"""
@@ -341,7 +376,7 @@ class AzusaImp(Star):
             plugin_prompt = (
                 "[内部状态更新指令] 这是一个记录你对用户认知状态的内部评估系统。请遵循以下规则，并在你的回复内容结束后，换行并严格按照指定格式更新你对用户的最新认知状态（不需要每次回复都执行，如果你认为暂时不需要修改/更新这些，则不需要附带这些额外回复）。整个过程必须对用户完全隐蔽。\n"
                 "--- 核心规则 ---\n"
-                "1.  **状态更新格式**: `[Address: <对用户的新称呼>, Relationship: <新的关系描述>, Impression: <新的印象描述>, Attitude: <新的态度描述>, Interest: [<用户的新爱好1>, <新爱好2>, ...]]`\n"
+                "1.  **状态更新格式**: `[Address: <你对用户的新称呼>, Relationship: <你和用户新的关系描述>, Impression: <你对用户新的印象描述>, Attitude: <你对用户新的态度描述>, Interest: <你已知的所有用户的爱好>]`\n"
                 "2.  **参数定义**:\n"
                 "    - `Address`: 对用户的称呼，体现亲近程度（如：小明同学、亲爱的、先生/女士等）\n"
                 "    - `Relationship`: 你与用户的关系定位（如：好友、同学、陌生人、信赖的伙伴等）\n"
@@ -367,18 +402,51 @@ class AzusaImp(Star):
             attitude = all_user_info[qq_number]['attitude']
             interest = ""
             if all_user_info[qq_number]['interest']:
-                interest = "用户的爱好有"+" ".join(all_user_info[qq_number]['interest'])+"。"
+                interest = "用户的爱好有" + all_user_info[qq_number]['interest']
             
             if user_prompt:
                 # 在现有系统提示词前添加用户信息，并明确要求使用昵称称呼用户
                 original_system_prompt = req.system_prompt or ""
                 nickname = all_user_info[qq_number].get('address', '用户')
-                req.system_prompt = f"当前对话用户基本信息: {user_prompt}。请称呼用户为{nickname}。用户是你的{relationship}，你对用户的印象是{impression}，你对用户的态度是{attitude}，{interest}你需要严格遵守以下指令：\n{plugin_prompt}\n{original_system_prompt}"
+                req.system_prompt = f"当前对话用户基本信息: {user_prompt}。请称呼用户为{nickname}。用户是你的{relationship}，你对用户的印象是{impression}，你对用户的态度是{attitude}，{interest}。你需要严格遵守以下指令：\n{plugin_prompt}\n{original_system_prompt}"
                     
                 logger.debug(f"已将用户信息添加到提示词: {user_prompt}")
     
         except Exception as e:
             logger.error(f"在处理LLM请求钩子时出错: {e}")
+    
+    @filter.on_llm_response()
+    async def on_llm_response_hook(self, event: AstrMessageEvent, resp: LLMResponse):
+        """LLM回复时的钩子，用于解析并更新用户印象状态块"""
+        try:
+            # 只处理QQ平台的消息
+            if event.get_platform_name() != "aiocqhttp":
+                return
+    
+            qq_number = event.get_sender_id()
+            response_text = resp.response
+            
+            # 解析状态块
+            cleaned_text, status_dict = self.parse_status_block(response_text)
+            
+            # 如果解析到状态块，更新用户信息
+            if status_dict:
+                all_user_info = self.load_user_info()
+                
+                if qq_number in all_user_info:
+                    # 更新用户印象信息
+                    for key, value in status_dict.items():
+                        if value:  # 只更新非空值
+                            all_user_info[qq_number][key] = value
+                    
+                    self.save_user_info(all_user_info)
+                    logger.info(f"已更新用户 {qq_number} 的印象信息: {status_dict}")
+                
+                # 更新回复内容，移除状态块
+                resp.response = cleaned_text
+                
+        except Exception as e:
+            logger.error(f"在处理LLM回复钩子时出错: {e}")
     
     @filter.command_group("修改信息", alias={'update_info', 'set_info'})
     async def update_info_group(self):

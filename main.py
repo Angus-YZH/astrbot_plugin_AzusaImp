@@ -20,7 +20,7 @@ class AzusaImp(Star):
         self.user_info_file = "data/plugin_data/AzusaImp/user_info.json"
         self.group_info_file = "data/plugin_data/AzusaImp/group_info.json"
         self.ensure_data_directory()
-        self.config = config
+        #self.config = config
         self.placeholder_pattern = re.compile(r'\[User ID: (\d+), Nickname: ([^\]]+)\]')
 
     def ensure_data_directory(self):

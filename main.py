@@ -15,7 +15,7 @@ from datetime import datetime
           "https://github.com/Angus-YZH/astrbot_plugin_AzusaImp")
 
 class AzusaImp(Star):
-    def __init__(self, context: Context, config: AstrBotConfig):
+    def __init__(self, context: Context,):
         super().__init__(context)
         self.user_info_file = "data/plugin_data/AzusaImp/user_info.json"
         self.group_info_file = "data/plugin_data/AzusaImp/group_info.json"

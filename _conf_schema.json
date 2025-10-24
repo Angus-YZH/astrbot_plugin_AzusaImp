@@ -4,7 +4,7 @@
         "type": "bool",
         "default": false,
         "hint": "没用别管"
-    }
+    }, 
     "self_info": {
         "description": "是否启用自我认知",
         "type": "bool",

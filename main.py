@@ -11,7 +11,7 @@ from datetime import datetime
 @register("AzusaImp", 
           "有栖日和", 
           "梓的用户信息和印象插件", 
-          "0.0.7e", 
+          "0.0.7f", 
           "https://github.com/Angus-YZH/astrbot_plugin_AzusaImp")
 
 class AzusaImp(Star):
@@ -755,6 +755,10 @@ class AzusaImp(Star):
             identifier(string): 要查询的群成员标识（昵称/关系描述/At消息）
         '''
         try:
+            # 检查是否启用了群成员信息工具
+            if not self.config.get("enable_group_member_info", True):
+                return
+        
             # 检查是否为群聊
             group_id = event.get_group_id()
             if not group_id:

@@ -11,7 +11,7 @@ from datetime import datetime
 @register("AzusaImp", 
           "有栖日和", 
           "梓的用户信息和印象插件", 
-          "0.0.7d", 
+          "0.0.7e", 
           "https://github.com/Angus-YZH/astrbot_plugin_AzusaImp")
 
 class AzusaImp(Star):

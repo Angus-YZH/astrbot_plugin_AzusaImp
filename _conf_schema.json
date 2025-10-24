@@ -4,7 +4,6 @@
         "type": "bool",
         "default": false,
         "hint": "开启后，LLM可以在群聊中获取其他成员的信息。建议使用糯米茨的群成员信息插件，我瞎写的"
-    }
     }, 
     "self_info": {
         "description": "是否启用自我认知",

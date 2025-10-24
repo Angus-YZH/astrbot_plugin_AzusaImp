@@ -11,16 +11,16 @@ from datetime import datetime
 @register("AzusaImp", 
           "有栖日和", 
           "梓的用户信息和印象插件", 
-          "0.0.7c", 
+          "0.0.7d", 
           "https://github.com/Angus-YZH/astrbot_plugin_AzusaImp")
 
 class AzusaImp(Star):
-    def __init__(self, context: Context,):
+    def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
         self.user_info_file = "data/plugin_data/AzusaImp/user_info.json"
         self.group_info_file = "data/plugin_data/AzusaImp/group_info.json"
         self.ensure_data_directory()
-        #self.config = config
+        self.config = config
         self.placeholder_pattern = re.compile(r'\[User ID: (\d+), Nickname: ([^\]]+)\]')
 
     def ensure_data_directory(self):
@@ -556,6 +556,134 @@ class AzusaImp(Star):
             logger.error(f"更新性别时出错: {e}")
             yield event.plain_result(f"更新性别失败: {str(e)}")
 
+    @azusaimp_command_group.command("set_relation")
+    @filter.permission_type(filter.PermissionType.ADMIN)
+    async def update_relationship(self, event: AstrMessageEvent, new_relationship: str, qq_number: str = ""):
+        """修改用户关系（管理员）
+        
+        Args:
+            new_relationship(string): 新的关系描述
+            qq_number(str): 目标用户QQ号，留空则默认为自己
+        """
+        try:
+            if not qq_number:
+                qq_number = event.get_sender_id()
+            
+            all_user_info = self.load_user_info()
+            
+            if qq_number not in all_user_info:
+                yield event.plain_result("用户信息不存在，请先发送一条消息触发信息记录")
+                return
+            
+            # 更新关系
+            old_relationship = all_user_info[qq_number].get('relationship', '')
+            all_user_info[qq_number]['relationship'] = new_relationship
+            
+            self.save_user_info(all_user_info)
+            
+            logger.info(f"管理员更新用户 {qq_number} 关系: {old_relationship} -> {new_relationship}")
+            yield event.plain_result(f"已更新用户 {qq_number} 的关系: {new_relationship}")
+            
+        except Exception as e:
+            logger.error(f"更新用户关系时出错: {e}")
+            yield event.plain_result(f"更新关系失败: {str(e)}")
+
+    @azusaimp_command_group.command("set_impression")
+    @filter.permission_type(filter.PermissionType.ADMIN)
+    async def update_impression(self, event: AstrMessageEvent, new_impression: str, qq_number: str = ""):
+        """修改用户印象（管理员）
+        
+        Args:
+            new_impression(string): 新的印象描述
+            qq_number(str): 目标用户QQ号，留空则默认为自己
+        """
+        try:
+            if not qq_number:
+                qq_number = event.get_sender_id()
+            
+            all_user_info = self.load_user_info()
+            
+            if qq_number not in all_user_info:
+                yield event.plain_result("用户信息不存在，请先发送一条消息触发信息记录")
+                return
+            
+            # 更新印象
+            old_impression = all_user_info[qq_number].get('impression', '')
+            all_user_info[qq_number]['impression'] = new_impression
+            
+            self.save_user_info(all_user_info)
+            
+            logger.info(f"管理员更新用户 {qq_number} 印象: {old_impression} -> {new_impression}")
+            yield event.plain_result(f"已更新用户 {qq_number} 的印象: {new_impression}")
+            
+        except Exception as e:
+            logger.error(f"更新用户印象时出错: {e}")
+            yield event.plain_result(f"更新印象失败: {str(e)}")
+    
+    @azusaimp_command_group.command("set_attitude")
+    @filter.permission_type(filter.PermissionType.ADMIN)
+    async def update_attitude(self, event: AstrMessageEvent, new_attitude: str, qq_number: str = ""):
+        """修改用户态度（管理员）
+        
+        Args:
+            new_attitude(string): 新的态度描述
+            qq_number(str): 目标用户QQ号，留空则默认为自己
+        """
+        try:
+            if not qq_number:
+                qq_number = event.get_sender_id()
+            
+            all_user_info = self.load_user_info()
+            
+            if qq_number not in all_user_info:
+                yield event.plain_result("用户信息不存在，请先发送一条消息触发信息记录")
+                return
+            
+            # 更新态度
+            old_attitude = all_user_info[qq_number].get('attitude', '')
+            all_user_info[qq_number]['attitude'] = new_attitude
+            
+            self.save_user_info(all_user_info)
+            
+            logger.info(f"管理员更新用户 {qq_number} 态度: {old_attitude} -> {new_attitude}")
+            yield event.plain_result(f"已更新用户 {qq_number} 的态度: {new_attitude}")
+            
+        except Exception as e:
+            logger.error(f"更新用户态度时出错: {e}")
+            yield event.plain_result(f"更新态度失败: {str(e)}")
+    
+    @azusaimp_command_group.command("set_interest")
+    @filter.permission_type(filter.PermissionType.ADMIN)
+    async def update_interest(self, event: AstrMessageEvent, new_interest: str, qq_number: str = ""):
+        """修改用户爱好（管理员）
+        
+        Args:
+            new_interest(string): 新的爱好描述
+            qq_number(str): 目标用户QQ号，留空则默认为自己
+        """
+        try:
+            if not qq_number:
+                qq_number = event.get_sender_id()
+            
+            all_user_info = self.load_user_info()
+            
+            if qq_number not in all_user_info:
+                yield event.plain_result("用户信息不存在，请先发送一条消息触发信息记录")
+                return
+            
+            # 更新爱好
+            old_interest = all_user_info[qq_number].get('interest', '')
+            all_user_info[qq_number]['interest'] = new_interest
+            
+            self.save_user_info(all_user_info)
+            
+            logger.info(f"管理员更新用户 {qq_number} 爱好: {old_interest} -> {new_interest}")
+            yield event.plain_result(f"已更新用户 {qq_number} 的爱好: {new_interest}")
+            
+        except Exception as e:
+            logger.error(f"更新用户爱好时出错: {e}")
+            yield event.plain_result(f"更新爱好失败: {str(e)}")
+
     @azusaimp_command_group.command("user_info")
     @filter.permission_type(filter.PermissionType.ADMIN)
     async def show_user_info(self, event: AstrMessageEvent, qq_number: str = ""):
@@ -614,6 +742,168 @@ class AzusaImp(Star):
         except Exception as e:
             logger.error(f"重置用户信息时出错: {e}")
             yield event.plain_result(f"获取信息失败: {str(e)}")
+
+    @filter.llm_tool(name="get_group_member_info")
+    async def get_group_member_info_tool(self, event: AstrMessageEvent, identifier: str) -> MessageEventResult:
+        '''获取群成员信息。
+        
+        当在群聊中需要获取其他群成员的信息时使用此工具。
+        可以通过昵称、关系、爱好、印象描述、群身份、群头衔或At消息来识别用户。
+        返回的信息仅供LLM内部使用，不会直接发送给用户。
+        
+        Args:
+            identifier(string): 要查询的群成员标识（昵称/关系描述/At消息）
+        '''
+        try:
+            # 检查是否为群聊
+            group_id = event.get_group_id()
+            if not group_id:
+                # 返回空信息，LLM可以继续处理
+                return
+            
+            # 检查是否为QQ平台
+            if event.get_platform_name() != "aiocqhttp":
+                return
+            
+            # 加载用户信息和群信息
+            all_user_info = self.load_user_info()
+            all_group_info = self.load_group_info()
+            
+            # 获取当前群的所有成员信息
+            current_group_info = all_group_info.get(group_id, {})
+            
+            # 解析标识符类型并查找目标用户
+            matched_users = []
+            
+            # 1. 检查是否为At消息 (CQ码格式)
+            if identifier.startswith('[CQ:at,qq='):
+                try:
+                    # 提取QQ号
+                    qq_match = re.search(r'\[CQ:at,qq=(\d+)\]', identifier)
+                    if qq_match:
+                        target_qq = qq_match.group(1)
+                        if target_qq in all_user_info and target_qq in current_group_info:
+                            matched_users.append(target_qq)
+                except Exception:
+                    pass
+            
+            # 2. 如果不是At消息，尝试通过昵称、关系、头衔、群身份或印象模糊匹配
+            if not matched_users:
+                identifier_lower = identifier.lower()
+                for qq_number, user_info in all_user_info.items():
+                    # 检查该用户是否在当前群中
+                    if qq_number not in current_group_info:
+                        continue
+                    
+                    # 模糊匹配昵称
+                    nickname = user_info.get('nickname', '')
+                    if nickname and identifier_lower in nickname.lower():
+                        matched_users.append(qq_number)
+                        continue
+                    
+                    # 模糊匹配关系描述
+                    relationship = user_info.get('relationship', '')
+                    if relationship and identifier_lower in relationship.lower():
+                        matched_users.append(qq_number)
+                        continue
+                    
+                    # 模糊匹配印象描述
+                    impression = user_info.get('impression', '')
+                    if impression and identifier_lower in impression.lower():
+                        matched_users.append(qq_number)
+                        continue
+                    
+                    # 模糊匹配兴趣
+                    interest = user_info.get('interest', '')
+                    if interest and identifier_lower in interest.lower():
+                        matched_users.append(qq_number)
+                        continue
+                        
+                    # 模糊匹配群身份
+                    group_role = current_group_info.get('group_role', '')
+                    if group_role and identifier_lower in group_role.lower():
+                        matched_users.append(qq_number)
+                        continue
+                    
+                    # 模糊匹配群头衔
+                    group_title = current_group_info.get('group_title', '')
+                    if group_title and identifier_lower in group_title.lower():
+                        matched_users.append(qq_number)
+                        continue
+            
+            # 如果没有匹配到任何用户，返回空信息
+            if not matched_users:
+                return
+            
+            # 收集所有匹配用户的信息
+            users_info = []
+            for qq_number in matched_users[:5]:  # 限制最多5个用户
+                user_info = all_user_info[qq_number]
+                group_member_info = current_group_info[qq_number]
+                
+                # 构建用户信息字典
+                user_data = {
+                    "qq": qq_number,
+                    "nickname": user_info.get('nickname', '未知'),
+                    "gender": user_info.get('gender', '未知'),
+                    "birthday": user_info.get('birthday', '未知'),
+                    "relationship": user_info.get('relationship', '未知'),
+                    "impression": user_info.get('impression', '未知'),
+                    "attitude": user_info.get('attitude', '未知'),
+                    "interest": user_info.get('interest', ''),
+                }
+                
+                # 计算年龄
+                if user_data["birthday"] != '未知':
+                    age = self.calculate_age(user_data["birthday"])
+                    if age > 0:
+                        user_data["age"] = f"{age}岁"
+                
+                # 添加群内信息
+                group_role = group_member_info.get('group_role')
+                if group_role:
+                    user_data["group_role"] = self.get_group_role_text(group_role)
+                
+                group_title = group_member_info.get('group_title', '')
+                if group_title and group_title != '无':
+                    user_data["group_title"] = group_title
+                
+                users_info.append(user_data)
+            
+            # 将用户信息格式化为LLM可用的文本
+            if len(users_info) == 1:
+                user_data = users_info[0]
+                info_text = f"找到用户: {user_data['nickname']}(QQ:{user_data['qq']})"
+                if user_data.get('gender') != '未知':
+                    info_text += f"，性别: {user_data['gender']}"
+                if user_data.get('age'):
+                    info_text += f"，年龄: {user_data['age']}"
+                if user_data.get('group_role'):
+                    info_text += f"，群身份: {user_data['group_role']}"
+                if user_data.get('group_title'):
+                    info_text += f"，群头衔: {user_data['group_title']}"
+                info_text += f"，关系: {user_data['relationship']}，印象: {user_data['impression']}，态度: {user_data['attitude']}"
+                if user_data['interest']:
+                    info_text += f"，兴趣: {user_data['interest']}"
+            else:
+                info_text = f"找到{len(users_info)}个匹配用户: "
+                user_list = []
+                for user_data in users_info:
+                    user_desc = f"{user_data['nickname']}(QQ:{user_data['qq']})"
+                    if user_data.get('group_role'):
+                        user_desc += f"-{user_data['group_role']}"
+                    user_list.append(user_desc)
+                info_text += "，".join(user_list)
+            
+            logger.debug(f"已返回：{info_text}")
+            # 返回给LLM的信息，不会直接发送给用户
+            # 使用yield返回，但LLM会将其作为上下文信息使用
+            yield event.plain_result(info_text)
+            
+        except Exception as e:
+            logger.error(f"获取群成员信息时出错: {e}")
+            # 出错时不返回任何信息，避免影响正常对话
+            return
 
     async def terminate(self):
         """插件卸载时的清理工作"""

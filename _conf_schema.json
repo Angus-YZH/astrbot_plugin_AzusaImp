@@ -1,0 +1,14 @@
+{
+    "nope": {
+        "description": "之后会做配置文件，先放个占位的",
+        "type": "bool",
+        "default": false,
+        "hint": "没用别管"
+    }
+    "self_info": {
+        "description": "是否启用自我认知",
+        "type": "bool",
+        "default": false,
+        "hint": "开启后，生成一份与用户格式相同的自己的user_info，我也不知道有啥用"
+    }
+}

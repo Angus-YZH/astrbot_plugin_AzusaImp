@@ -12,7 +12,7 @@ from datetime import datetime
 @register("AzusaImp", 
           "有栖日和", 
           "梓的用户信息和印象插件", 
-          "0.0.7g", 
+          "0.0.7h", 
           "https://github.com/Angus-YZH/astrbot_plugin_AzusaImp")
 
 class AzusaImp(Star):
@@ -878,6 +878,7 @@ class AzusaImp(Star):
             
 
             elapsed_time = time.time() - start_time
+            logger.debug(f"成功将以下内容加入提示词:\n{processed_members}")
             logger.info(f"成功获取群 {group_id} 的 {len(processed_members)} 名成员完整信息，耗时 {elapsed_time:.2f}s")
             
             # 出错时不返回任何信息

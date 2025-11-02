@@ -12,7 +12,7 @@ from datetime import datetime
 @register("AzusaImp", 
           "有栖日和", 
           "梓的用户信息和印象插件", 
-          "0.0.7h", 
+          "0.0.7i", 
           "https://github.com/Angus-YZH/astrbot_plugin_AzusaImp")
 
 class AzusaImp(Star):
@@ -844,8 +844,10 @@ class AzusaImp(Star):
                 # 构建成员信息
                 member_info = {
                     "user_id": str(qq_number),
+                    "info": f""
                     "display_name": group_member_data.get("display_name") or user_data.get("nickname") or f"用户{qq_number}",
                     "username": user_data.get("nickname") or f"用户{qq_number}",
+                    "username": user_data.get("address"),
                     "gender": user_data.get("gender", "未知"),
                     "birthday": user_data.get("birthday", "未知"),
                     "group_role": self.get_group_role_text(group_member_data.get("group_role", "member")),
@@ -865,7 +867,23 @@ class AzusaImp(Star):
                         member_info["age"] = age
 
 
-                processed_members.append(member_info)
+                member_prompt = ""
+                member_prompt += f"用户QQ号: {qq_number}，"
+                member_prompt += f"昵称: {member_info['username']}，"
+                member_prompt += f"群昵称: {member_info['display_name']}，" if member_info['display_name'] != member_info['username'] else ""
+                member_prompt += f"你对ta的称呼是: {member_info['address']}，"
+                member_prompt += f"性别: {member_info['gender']}，"
+                member_prompt += f"生日: {member_info['birthday']}，"
+                member_prompt += f"年龄: {member_info['age']}岁，" if 'age' in member_info['age'] else ""
+                member_prompt += f"群身份: {member_info['group_role']}，"
+                member_prompt += f"群头衔: {member_info['group_title']}，"
+                member_prompt += f"关系: {member_info['relationship']}，"
+                member_prompt += f"印象: {member_info['impression']}，"
+                member_prompt += f"态度: {member_info['attitude']}，"
+                member_prompt += f"爱好: {member_info['interest']}" if member_info['interest'] else ""
+
+
+                processed_members.append(member_prompt)
 
 
                 # 构建群信息

@@ -12,7 +12,7 @@ from datetime import datetime
 @register("AzusaImp", 
           "有栖日和", 
           "梓的用户信息和印象插件", 
-          "0.0.7i", 
+          "0.0.7j", 
           "https://github.com/Angus-YZH/astrbot_plugin_AzusaImp")
 
 class AzusaImp(Star):
@@ -844,7 +844,6 @@ class AzusaImp(Star):
                 # 构建成员信息
                 member_info = {
                     "user_id": str(qq_number),
-                    "info": f""
                     "display_name": group_member_data.get("display_name") or user_data.get("nickname") or f"用户{qq_number}",
                     "username": user_data.get("nickname") or f"用户{qq_number}",
                     "username": user_data.get("address"),
